@@ -117,6 +117,12 @@ save_root_pass() {
 
 backup_old_files() {
 	cp -fL /etc/hostname /etc/localtime "/root.$cpu_type/etc/" || true
+	if [ -f "/root/.ssh/authorized_keys" ]; then
+		mkdir -p "/root.$cpu_type/root/.ssh/"
+		chmod 0700 "/root.$cpu_type/root/.ssh/"
+		cp -fL "/root/.ssh/authorized_keys" "/root.$cpu_type/root/.ssh/"
+		chmod 0600 "/root.$cpu_type/root/.ssh/authorized_keys"
+	fi
 }
 
 delete_all() {
@@ -141,12 +147,17 @@ install_packages() {
 }
 
 restore_root_pass() {
+	if [ -f "/root.$cpu_type/root/.ssh/authorized_keys" ]; then
+		mkdir -p "/root/.ssh"
+		chmod 0700 "/root/.ssh"
+		cp -f "/root.$cpu_type/root/.ssh/authorized_keys" "/root/.ssh/"
+		chmod 0600 "/root/.ssh/authorized_keys"
+	fi
 	# If the root password is not set, use vps2arch
 	if egrep -q '^root:.?:' "/root.$cpu_type/root.passwd"; then
 		echo "root:vps2arch" | chpasswd
 	else
-		sed -i '/^root:/d' /etc/shadow
-		cat "/root.$cpu_type/root.passwd" >> /etc/shadow
+		usermod -p "$(cat "/root.$cpu_type/root.passwd" | awk -F ":" '{print $2}')" root
 	fi
 }
 
@@ -264,8 +275,10 @@ finalize() {
 		fi
 	fi
 
-	# Enable SSH login for user root (#3)
-	sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
+	if [ ! -f "/root/.ssh/authorized_keys" ]; then
+		# Enable SSH login for user root (#3)
+		sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
+	fi
 	
 	cat <<-EOF
 		Hi,
