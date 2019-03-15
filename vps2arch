@@ -93,7 +93,6 @@ chroot_exec() {
 configure_chroot() {
 	_download 'https://www.archlinux.org/mirrorlist/?country=all&protocol=http&protocol=https&ip_version=4&use_mirror_status=on' | sed -r 's/^#?(Server = )/\1/' > "/root.$cpu_type/etc/pacman.d/mirrorlist"
 	chroot_exec 'pacman-key --init && pacman-key --populate archlinux'
-	chroot_exec 'pacman --noconfirm -Sy awk'
 	# Generate fstab
 	chroot_exec 'genfstab /mnt >> /etc/fstab'
 
