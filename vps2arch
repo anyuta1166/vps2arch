@@ -91,10 +91,7 @@ chroot_exec() {
 }
 
 configure_chroot() {
-	local m
-	for m in $mirrors; do
-		echo 'Server = '"$m"'/$repo/os/$arch'
-	done >> "/root.$cpu_type/etc/pacman.d/mirrorlist"
+	_download 'https://www.archlinux.org/mirrorlist/?country=all&protocol=http&protocol=https&ip_version=4&use_mirror_status=on' | sed -r 's/^#?(Server = )/\1/' > "/root.$cpu_type/etc/pacman.d/mirrorlist"
 	# Install and initialize haveged if needed
 	if ! is_openvz && ! pidof haveged >/dev/null; then
 		# Disable signature check, install and launch haveged and re-enable signature checks.
@@ -133,7 +130,7 @@ delete_all() {
 }
 
 install_packages() {
-	local packages="base openssh reflector"
+	local packages="base openssh"
 	[ "$bootloader" != "none" ] && packages="$packages $bootloader"
 	# XXX Install gptdisk for syslinux. To be removed then FS#45029 will be closed
 	[ "$bootloader" = "syslinux" ] && packages="$packages gptfdisk"
@@ -273,16 +270,6 @@ finalize() {
 	# Enable SSH login for user root (#3)
 	sed -i '/^#PermitRootLogin\s/s/.*/&\nPermitRootLogin yes/' /etc/ssh/sshd_config
 	
-	# Run reflector to get updated mirrors
-	
-	cat <<-EOF
-	
-		Reflector: Rating the 35 most recently synced HTTPS servers, sorting them by download speed
-		
-	EOF
-	
-	reflector -l 35 -p https --sort rate --save /etc/pacman.d/mirrorlist
-
 	cat <<-EOF
 		Hi,
 		your VM has successfully been reimaged with Arch Linux.
