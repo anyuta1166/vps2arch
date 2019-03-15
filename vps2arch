@@ -92,13 +92,6 @@ chroot_exec() {
 
 configure_chroot() {
 	_download 'https://www.archlinux.org/mirrorlist/?country=all&protocol=http&protocol=https&ip_version=4&use_mirror_status=on' | sed -r 's/^#?(Server = )/\1/' > "/root.$cpu_type/etc/pacman.d/mirrorlist"
-	# Install and initialize haveged if needed
-	if ! is_openvz && ! pidof haveged >/dev/null; then
-		# Disable signature check, install and launch haveged and re-enable signature checks.
-		sed -i.bak "s/^[[:space:]]*SigLevel[[:space:]]*=.*$/SigLevel = Never/" "/root.$cpu_type/etc/pacman.conf"
-		chroot_exec 'pacman --noconfirm -Sy haveged && haveged'
-		mv "/root.$cpu_type/etc/pacman.conf.bak" "/root.$cpu_type/etc/pacman.conf"
-	fi
 	chroot_exec 'pacman-key --init && pacman-key --populate archlinux'
 	chroot_exec 'pacman --noconfirm -Sy awk'
 	# Generate fstab
@@ -273,6 +266,12 @@ finalize() {
 			# Use my repository for OpenVZ-patched systemd
 			sed -i 's;^#\[testing\]$;[tredaelli-systemd]\nServer = http://pkgbuild.com/~tredaelli/repo/systemd/$arch\n\n&;' /etc/pacman.conf
 		fi
+	fi
+
+	# Install and initialize haveged if needed
+	if pidof haveged >/dev/null; then
+		pacman --noconfirm -Sy haveged
+		systemctl enable haveged
 	fi
 
 	if [ ! -f "/root/.ssh/authorized_keys" ]; then
