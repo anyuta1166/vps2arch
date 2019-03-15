@@ -44,6 +44,15 @@ download() {
 	return 1
 }
 
+check_efi() {
+	mountpoints=$(cat /proc/mounts | awk '{if ($3 == "vfat") {print $2}}') esp=
+	for mountpoint in $mountpoints; do
+		if [ -n "$mountpoint" ] && [ -d "$mountpoint/EFI" ]; then
+			esp="$mountpoint"
+		fi
+	done
+}
+
 download_and_extract_bootstrap() {
 	local sha1 filename
 	download iso/latest/sha1sums.txt | fgrep "$cpu_type.tar.gz" > "sha1sums.txt"
@@ -66,6 +75,10 @@ download_and_extract_bootstrap() {
 	# FIXME support multiple partitions
 	mount --bind / "/root.$cpu_type/mnt"
 	findmnt /boot >/dev/null && mount --bind /boot "/root.$cpu_type/mnt/boot"
+	if [ -n "$esp" ]; then
+		mkdir -p  "/root.$cpu_type/mnt$esp"
+		mount --bind "$esp" "/root.$cpu_type/mnt$esp"
+	fi
 	# Workaround for Debian
 	mkdir -p "/root.$cpu_type/run/shm"
 	# Workaround for OpenVZ
@@ -165,21 +178,25 @@ configure_bootloader() {
 		# Disable "graphic" terminal output
 		sed -i.bak 's/^#GRUB_TERMINAL_OUTPUT=console/GRUB_TERMINAL_OUTPUT=console/' /etc/default/grub
 
-		if [ $needs_lvm2 -eq 1 ]; then
-			local vg
-			vg=$(lvs --noheadings $root_dev | awk '{print $2}')
-			root_dev=$(pvs --noheadings | awk -v vg="$vg" '($2 == vg) { print $1 }')
+		if [ -n "$esp" ]; then
+			grub-install --target=x86_64-efi --efi-directory=$esp --removable
+		else
+			if [ $needs_lvm2 -eq 1 ]; then
+				local vg
+				vg=$(lvs --noheadings $root_dev | awk '{print $2}')
+				root_dev=$(pvs --noheadings | awk -v vg="$vg" '($2 == vg) { print $1 }')
+			fi
+			for root_dev in $root_dev; do
+				tmp=$(lsblk -npsro TYPE,NAME "$root_dev" | awk '($1 == "disk") { print $2}')
+				case " $root_devs " in
+				*" $tmp "*) 	;;
+				*)		root_devs="${root_devs:+$root_devs }$tmp"	;;
+				esac
+			done
+			for root_dev in $root_devs; do
+				grub-install --target=i386-pc --recheck --force "$root_dev"
+			done
 		fi
-		for root_dev in $root_dev; do
-			tmp=$(lsblk -npsro TYPE,NAME "$root_dev" | awk '($1 == "disk") { print $2}')
-			case " $root_devs " in
-			*" $tmp "*) 	;;
-			*)		root_devs="${root_devs:+$root_devs }$tmp"	;;
-			esac
-		done
-		for root_dev in $root_devs; do
-			grub-install --target=i386-pc --recheck --force "$root_dev"
-		done
 		grub-mkconfig > /boot/grub/grub.cfg
 	elif [ "$bootloader" = "syslinux" ]; then
 		# If you are still using eth* as interface name, disable "strange" ifnames
@@ -341,6 +358,7 @@ elif is_lxc; then
 fi
 
 cd /
+check_efi
 download_and_extract_bootstrap
 configure_chroot
 save_root_pass
