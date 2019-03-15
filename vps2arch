@@ -172,9 +172,6 @@ configure_bootloader() {
 		grep -q '^[[:space:]]*eth' /proc/net/dev && \
 			sed -i.bak 's/GRUB_CMDLINE_LINUX_DEFAULT="/&net.ifnames=0 /' /etc/default/grub
 
-		# Disable "graphic" terminal output
-		sed -i.bak 's/^#GRUB_TERMINAL_OUTPUT=console/GRUB_TERMINAL_OUTPUT=console/' /etc/default/grub
-
 		if [ -n "$esp" ]; then
 			grub-install --target=x86_64-efi --efi-directory=$esp --removable
 		else
