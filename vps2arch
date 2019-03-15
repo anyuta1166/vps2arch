@@ -281,7 +281,7 @@ finalize() {
 }
 
 bootloader=grub
-network=systemd-networkd
+network=netctl
 mirrors=
 
 while getopts ":b:m:n:h" opt; do
@@ -309,7 +309,7 @@ while getopts ":b:m:n:h" opt; do
 
 			  Options:
 			    -b (grub|syslinux)           Use the specified bootloader. When this option is omitted, it defaults to grub.
-			    -n (systemd-networkd|netctl) Use the specified networking configuration system. When this option is omitted, it defaults to systemd-networkd.
+			    -n (netctl|systemd-networkd) Use the specified networking configuration system. When this option is omitted, it defaults to netctl.
 			    -m mirror                    Use the provided mirror (you can specify this option more than once).
 
 			    -h                           Print this help message
